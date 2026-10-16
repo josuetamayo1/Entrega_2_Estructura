@@ -14,7 +14,6 @@ int main() {
     WSADATA wsaData;
     SOCKET sock = INVALID_SOCKET;
     struct sockaddr_in serv_addr;
-    char buffer[1024] = { 0 };
 
     // Inicializar Winsock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -34,7 +33,7 @@ int main() {
     serv_addr.sin_port = htons(PORT);
 
     // IP del receptor (127.0.0.1 = este mismo PC)
-    serv_addr.sin_addr.s_addr = inet_addr("192.168.80.20");
+    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
         std::cerr << "Direccion invalida o no soportada" << std::endl;
         closesocket(sock);
@@ -63,15 +62,11 @@ int main() {
         if (texto == "salir") break;
 
         texto += "\n";  // El receptor separa los mensajes por \n
-        send(sock, texto.c_str(), (int)texto.size(), 0);
-
-        int valread = recv(sock, buffer, 1023, 0);
-        if (valread <= 0) {
+        if (send(sock, texto.c_str(), (int)texto.size(), 0) == SOCKET_ERROR) {
             std::cout << "El servidor se desconecto\n";
             break;
         }
-        buffer[valread] = '\0';
-        std::cout << "Respuesta del servidor: " << buffer << std::endl;
+        std::cout << "Enviado\n";
     }
 
     closesocket(sock);
