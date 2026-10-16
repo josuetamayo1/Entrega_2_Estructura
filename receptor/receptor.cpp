@@ -1,14 +1,3 @@
-// ============================================================================
-//  receptor_dll.cpp  -  Libreria dinamica (DLL) del receptor de placas
-//
-//  Funciones exportadas (contrato del equipo):
-//    int  iniciar_receptor(int puerto);              // 1 = ok, 0 = error
-//    int  obtener_mensaje(char* buffer, int tamano); // 1 = hay mensaje, 0 = no hay
-//    void detener_receptor();
-//
-//  Formato de cada mensaje que entrega: "placa,hora,celda"  (ej. ABC123,18:30:05,12)
-// ============================================================================
-
 #include <string>
 #include <sstream>
 #include <vector>
@@ -20,32 +9,24 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#pragma comment(lib, "ws2_32.lib")  // Enlaza la libreria Winsock
+#pragma comment(lib, "ws2_32.lib")
 
-// Macro para exportar funciones con nombre "plano" (sin decoracion de C++),
-// asi Python las encuentra por su nombre exacto.
 #define EXPORTAR extern "C" __declspec(dllexport)
 
-// ===================== Estado interno de la DLL =====================
-static std::queue<std::string> cola_mensajes;   // mensajes validos recibidos
-static std::mutex mutex_cola;                    // protege la cola
+static std::queue<std::string> cola_mensajes;
+static std::mutex mutex_cola;
 
-static std::atomic<bool> activo(false);          // true mientras el receptor corre
-static SOCKET servidor_fd = INVALID_SOCKET;      // socket que escucha
-static std::atomic<SOCKET> cliente_fd(INVALID_SOCKET); // socket del generador conectado
-
-// Se usa un puntero para que, si Python se cierra sin llamar a detener_receptor(),
-// no se destruya un hilo activo (eso cerraria el programa con error).
+static std::atomic<bool> activo(false);
+static SOCKET servidor_fd = INVALID_SOCKET;
+static std::atomic<SOCKET> cliente_fd(INVALID_SOCKET);
 static std::thread* hilo = nullptr;
 
-// ===================== Cola protegida con mutex =====================
 static void encolar_mensaje(const std::string& msg) {
     std::lock_guard<std::mutex> candado(mutex_cola);
     cola_mensajes.push(msg);
 }
 
-// ===================== Validar una linea completa =====================
-// Si tiene el formato placa,hora,celda la mete en la cola; si no, la descarta.
+// Valida "placa,hora,celda"; si es correcto lo mete en la cola
 static void procesar_linea(const std::string& linea) {
     std::vector<std::string> partes;
     std::stringstream ss(linea);
@@ -54,7 +35,7 @@ static void procesar_linea(const std::string& linea) {
         partes.push_back(parte);
     }
     if (partes.size() != 3) {
-        return;  // mensaje invalido
+        return;
     }
 
     int celda;
@@ -62,43 +43,38 @@ static void procesar_linea(const std::string& linea) {
         celda = std::stoi(partes[2]);
     }
     catch (...) {
-        return;  // celda invalida
+        return;
     }
 
     encolar_mensaje(partes[0] + "," + partes[1] + "," + std::to_string(celda));
 }
 
-// ===================== Hilo de recepcion =====================
-// Acepta un generador, recibe sus mensajes y, si se desconecta,
-// vuelve a esperar otro. Termina cuando se llama a detener_receptor().
 static void hilo_recepcion() {
     char buffer[1024];
 
     while (activo) {
         SOCKET s = accept(servidor_fd, nullptr, nullptr);
         if (s == INVALID_SOCKET) {
-            // Si fallo porque detener_receptor() cerro el socket, salimos
             if (!activo) break;
             continue;
         }
         cliente_fd = s;
 
-        std::string pendiente;  // acumulador de lo recibido
+        std::string pendiente;
         while (activo) {
             int valread = recv(s, buffer, sizeof(buffer) - 1, 0);
             if (valread <= 0) {
-                break;  // el generador se desconecto (o se detuvo el receptor)
+                break;
             }
             buffer[valread] = '\0';
             pendiente += buffer;
 
-            // Sacar todos los mensajes completos (terminados en \n)
             size_t pos;
             while ((pos = pendiente.find('\n')) != std::string::npos) {
                 std::string linea = pendiente.substr(0, pos);
                 pendiente.erase(0, pos + 1);
                 if (!linea.empty() && linea.back() == '\r') {
-                    linea.pop_back();  // por si llega con \r\n
+                    linea.pop_back();
                 }
                 procesar_linea(linea);
             }
@@ -109,11 +85,9 @@ static void hilo_recepcion() {
     }
 }
 
-// ===================== Funciones exportadas =====================
-
 EXPORTAR int iniciar_receptor(int puerto) {
     if (activo) {
-        return 0;  // ya estaba iniciado
+        return 0;
     }
 
     WSADATA wsaData;
@@ -141,8 +115,8 @@ EXPORTAR int iniciar_receptor(int puerto) {
     }
 
     activo = true;
-    hilo = new std::thread(hilo_recepcion);  // la recepcion corre en segundo plano
-    return 1;                                // y la funcion regresa de inmediato
+    hilo = new std::thread(hilo_recepcion);
+    return 1;
 }
 
 EXPORTAR int obtener_mensaje(char* buffer, int tamano) {
@@ -158,7 +132,7 @@ EXPORTAR int obtener_mensaje(char* buffer, int tamano) {
     const std::string& msg = cola_mensajes.front();
     size_t n = msg.size();
     if (n > (size_t)(tamano - 1)) {
-        n = (size_t)(tamano - 1);  // no escribir fuera del buffer de Python
+        n = (size_t)(tamano - 1);
     }
     memcpy(buffer, msg.c_str(), n);
     buffer[n] = '\0';
@@ -173,18 +147,17 @@ EXPORTAR void detener_receptor() {
     }
     activo = false;
 
-    // Cerrar el socket que escucha desbloquea el accept()
+    // Cerrar los sockets desbloquea accept() y recv() para que el hilo termine
     closesocket(servidor_fd);
     servidor_fd = INVALID_SOCKET;
 
-    // Cortar la conexion del generador desbloquea el recv()
     SOCKET c = cliente_fd;
     if (c != INVALID_SOCKET) {
         shutdown(c, SD_BOTH);
     }
 
     if (hilo != nullptr) {
-        hilo->join();  // esperar a que el hilo termine
+        hilo->join();
         delete hilo;
         hilo = nullptr;
     }
@@ -192,7 +165,7 @@ EXPORTAR void detener_receptor() {
     {
         std::lock_guard<std::mutex> candado(mutex_cola);
         std::queue<std::string> vacia;
-        std::swap(cola_mensajes, vacia);  // vaciar la cola
+        std::swap(cola_mensajes, vacia);
     }
 
     WSACleanup();
