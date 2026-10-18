@@ -2,7 +2,7 @@
 #include <cstdlib>   // rand
 
 Parqueadero::Parqueadero() : ocupadas(0) {
-    // Los 20 strings nacen vacíos, o sea todas las celdas libres.
+    // Las NUM_CELDAS celdas nacen vacias, o sea todas libres.
 }
 
 bool Parqueadero::celdaValida(int celda) const {
@@ -13,7 +13,7 @@ bool Parqueadero::estaLleno() const  { return ocupadas == NUM_CELDAS; }
 bool Parqueadero::estaVacio() const  { return ocupadas == 0; }
 
 bool Parqueadero::placaDentro(const std::string& placa) const {
-    if (placa.empty()) return false;  // "" coincidiría con las celdas libres
+    if (placa.empty()) return false;  // "" coincidirÃ­a con las celdas libres
     for (int i = 0; i < NUM_CELDAS; i++) {
         if (celdas[i] == placa) return true;
     }
@@ -29,20 +29,20 @@ int Parqueadero::elegirCeldaLibre() const {
     int libres = NUM_CELDAS - ocupadas;
     if (libres == 0) return 0;
 
-    int k = rand() % libres;          // "la k-ésima celda libre"
+    int k = rand() % libres;          // "la k-Ã©sima celda libre"
     for (int i = 0; i < NUM_CELDAS; i++) {
         if (celdas[i].empty()) {
             if (k == 0) return i + 1;
             k--;
         }
     }
-    return 0;  // no debería llegar aquí
+    return 0;  // no deberÃ­a llegar aquÃ­
 }
 
 int Parqueadero::elegirCeldaOcupada() const {
     if (ocupadas == 0) return 0;
 
-    int k = rand() % ocupadas;        // "la k-ésima celda ocupada"
+    int k = rand() % ocupadas;        // "la k-Ã©sima celda ocupada"
     for (int i = 0; i < NUM_CELDAS; i++) {
         if (!celdas[i].empty()) {
             if (k == 0) return i + 1;
