@@ -1,6 +1,6 @@
 # Generador de placas
 
-**Responsable:** Jhoan · **Código:** `generador/`
+**Responsable:** Johan López · **Código:** `generador/`
 
 Proceso cliente en C++ que simula los carros que entran y salen del parqueadero, y envía cada evento al receptor por TCP.
 
