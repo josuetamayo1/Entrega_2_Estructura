@@ -24,5 +24,5 @@ Las instrucciones para compilar y ejecutar están en el [README](../README.md).
 | Integrante | Componente |
 |---|---|
 | Cristopher Corrales | Receptor (DLL) |
-| Jhoan | Generador de placas |
+| Johan López | Generador de placas |
 | Josué Tamayo | Visualizador |
