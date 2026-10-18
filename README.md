@@ -123,10 +123,12 @@ Más detalle de cada componente, el protocolo y los diagramas en la carpeta **[d
 - [Visualizador](docs/Visualizador.md)
 - [Pruebas](docs/Pruebas.md)
 
+El mismo contenido está en la **[Wiki](https://github.com/josuetamayo1/Entrega_2_Estructura/wiki)** del repositorio.
+
 ## Equipo
 
 | Integrante | Componente |
 |---|---|
 | Cristopher Corrales | Receptor (DLL) |
-| Jhoan | Generador de placas |
+| Johan López | Generador de placas |
 | Josué Tamayo | Visualizador |
