@@ -20,6 +20,51 @@ void detener_receptor();
 
 Se exportan con `extern "C" __declspec(dllexport)`: `extern "C"` evita que C++ cambie los nombres de las funciones, así `ctypes` las encuentra por su nombre exacto.
 
+## Diagrama UML
+
+La DLL no está hecha con clases: es un módulo con tres funciones públicas (las exportadas) y un estado interno privado (`static`). El diagrama lo muestra con estereotipos.
+
+```mermaid
+classDiagram
+  direction LR
+  class receptor_dll {
+    <<DLL exportada>>
+    +iniciar_receptor(int puerto) int
+    +obtener_mensaje(char* buffer, int tamano) int
+    +detener_receptor() void
+  }
+  class EstadoInterno {
+    <<static, privado>>
+    -queue~string~ cola_mensajes
+    -mutex mutex_cola
+    -atomic~bool~ activo
+    -SOCKET servidor_fd
+    -atomic~SOCKET~ cliente_fd
+    -thread* hilo
+    -encolar_mensaje(string msg) void
+    -procesar_linea(string linea) void
+    -hilo_recepcion() void
+  }
+  class receptor_py {
+    <<Python · visualizador>>
+    +iniciar_receptor(int puerto) int
+    +obtener_mensaje() tuple
+    +detener_receptor() void
+  }
+  class ClienteTCP {
+    <<C++ · generador>>
+    +enviar(string texto) bool
+  }
+  receptor_dll --> EstadoInterno : usa
+  receptor_py ..> receptor_dll : ctypes
+  ClienteTCP ..> EstadoInterno : TCP 8080
+```
+
+- **`receptor_dll`**: lo único que ve el visualizador. Las tres funciones se exportan con `extern "C" __declspec(dllexport)`.
+- **`EstadoInterno`**: variables y funciones `static` del archivo `receptor.cpp`. No se pueden usar desde fuera de la DLL.
+- **`receptor_py`**: el módulo `visualizacion/receptor.py`, que carga la DLL con `ctypes`.
+- **`ClienteTCP`**: la clase del generador que envía los mensajes por el socket.
+
 ## Funcionamiento interno
 
 ```mermaid
