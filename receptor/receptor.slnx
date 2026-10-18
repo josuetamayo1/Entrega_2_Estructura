@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="receptor.vcxproj" />
+  <Project Path="receptor.vcxproj" Id="363f539d-2218-4502-b4e5-0d4562dd4fa3" />
 </Solution>
