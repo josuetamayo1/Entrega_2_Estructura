@@ -13,17 +13,17 @@ public:
     bool estaLleno() const;
     bool estaVacio() const;
     bool placaDentro(const std::string& placa) const;
-    std::string placaEn(int celda) const;   // "" si la celda est· libre o es inv·lida
-    int elegirCeldaLibre() const;           // celda libre al azar, 0 si est· lleno
-    int elegirCeldaOcupada() const;         // celda ocupada al azar, 0 si est· vacÌo
+    std::string placaEn(int celda) const;   // "" si la celda est√° libre o es inv√°lida
+    int elegirCeldaLibre() const;           // celda libre al azar, 0 si est√° lleno
+    int elegirCeldaOcupada() const;         // celda ocupada al azar, 0 si est√° vac√≠o
 
-    // Modificaciones (devuelven false si la operaciÛn no es v·lida)
+    // Modificaciones (devuelven false si la operaci√≥n no es v√°lida)
     bool ocupar(int celda, const std::string& placa);
     bool liberar(int celda);
 
 private:
     std::string celdas[NUM_CELDAS];  // "" = libre
-    int ocupadas;                    // contador para lleno/vacÌo en O(1)
+    int ocupadas;                    // contador para lleno/vac√≠o en O(1)
 
     bool celdaValida(int celda) const;
 };
