@@ -38,4 +38,77 @@ Para la prueba en dos PCs, `ip` debe ser la IP del PC donde corre el visualizado
 
 ## Diagrama de clases
 
-*(Pendiente)*
+```mermaid
+classDiagram
+  direction LR
+  class Simulador {
+    -Parqueadero parqueadero
+    -GeneradorPlacas generador
+    -ClienteTCP cliente
+    +Simulador(Config config)
+    +ejecutar() void
+    -decidirEntrada() bool
+    -procesarEntrada() bool
+    -procesarSalida() bool
+    -enviar(string texto) bool
+    -esperarIntervalo() void
+  }
+  class Parqueadero {
+    +int NUM_CELDAS$
+    -string[] celdas
+    -int ocupadas
+    +estaLleno() bool
+    +estaVacio() bool
+    +placaDentro(string placa) bool
+    +placaEn(int celda) string
+    +elegirCeldaLibre() int
+    +elegirCeldaOcupada() int
+    +ocupar(int celda, string placa) bool
+    +liberar(int celda) bool
+    -celdaValida(int celda) bool
+  }
+  class GeneradorPlacas {
+    +generar() string
+  }
+  class ClienteTCP {
+    -string ip
+    -int puerto
+    -SOCKET sock
+    -sockaddr_in direccion
+    -bool winsockIniciado
+    -bool configValida
+    -bool conectado
+    +ClienteTCP(string ip, int puerto)
+    +conectar() bool
+    +reconectar() bool
+    +enviar(string texto) bool
+    +cerrar() void
+    +estaConectado() bool
+    -conexionViva() bool
+    -describirError(int codigo) string$
+  }
+  class Config {
+    -string ip
+    -int puerto
+    +Config()
+    +cargar(string archivo) bool
+    +getIp() string
+    +getPuerto() int
+    -recortar(string s) string$
+  }
+  class Evento {
+    -string placa
+    -string hora
+    -int celda
+    +Evento(string placa, int celda)
+    +aTexto() string
+    -horaActual() string$
+  }
+  Simulador *-- Parqueadero
+  Simulador *-- GeneradorPlacas
+  Simulador *-- ClienteTCP
+  Simulador ..> Config : recibe
+  Simulador ..> Evento : crea
+```
+
+`Simulador` contiene (composición) a `Parqueadero`, `GeneradorPlacas` y `ClienteTCP`. Recibe una `Config` en su constructor y crea un `Evento` por cada entrada o salida.
