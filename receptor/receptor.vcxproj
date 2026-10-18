@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{363f539d-2218-4502-b4e5-0d4562dd4fa3}</ProjectGuid>
+    <ProjectGuid>{85E94625-8E15-9A26-C71F-29A3251A57A8}</ProjectGuid>
     <RootNamespace>receptor</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
