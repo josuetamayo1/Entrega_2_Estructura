@@ -6,9 +6,9 @@ from datetime import datetime
 from logica import NUM_CELDAS
 
 
-USAR_MOCK = True
+USAR_MOCK = False
 
-PUERTO = 5000
+PUERTO = 8080
 
 _PLACAS = ["ABC123", "XYZ789", "QWE456", "RTY321", "MNO654", "JKL987"]
 
