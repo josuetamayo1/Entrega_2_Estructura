@@ -3,6 +3,6 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="../receptor/receptor.vcxproj" />
-  <Project Path="cliente_prueba.vcxproj" />
+  <Project Path="../receptor/receptor.vcxproj" Id="8fe91be2-12cc-b2d8-c001-5a7db7c01d6a" />
+  <Project Path="cliente_prueba.vcxproj" Id="69f41287-aa8d-4a80-b2a2-7ac72a2fe4b8" />
 </Solution>

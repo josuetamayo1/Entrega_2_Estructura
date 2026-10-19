@@ -1,126 +1,168 @@
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <cstring>
+#define NOMINMAX
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#pragma comment(lib, "ws2_32.lib")  // Enlaza la libreria Winsock
+#include <algorithm>
+#include <atomic>
+#include <cstring>
+#include <mutex>
+#include <queue>
+#include <string>
+#include <thread>
 
-#define PORT 8080
+#pragma comment(lib, "ws2_32.lib")  
 
-int main() {
-    WSADATA wsaData;
-    SOCKET servidor_fd, nuevo_socket;
-    struct sockaddr_in direccion;
-    int addrlen = sizeof(direccion);
-    char buffer[1024] = { 0 };
-    const char* mensaje = "Recibido";
+#define EXPORTAR extern "C" __declspec(dllexport)
 
-    // Inicializar Winsock
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "Fallo al inicializar Winsock. Codigo de error: " << WSAGetLastError() << std::endl;
-        return 1;
+
+static const bool ENVIAR_ACK = true;
+
+static const size_t MAX_COLA = 1000;
+
+static SOCKET g_servidor = INVALID_SOCKET;
+static std::thread g_hilo;
+static std::atomic<bool> g_corriendo(false);
+static std::mutex g_mutex;              
+static std::queue<std::string> g_cola;
+
+
+static void encolar(std::string linea) {
+    while (!linea.empty() && linea.back() == '\r') {
+        linea.pop_back();
     }
+    if (linea.empty()) return;
 
-    // Crear socket
-    servidor_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (servidor_fd == INVALID_SOCKET) {
-        std::cerr << "Fallo en socket. Codigo de error: " << WSAGetLastError() << std::endl;
-        WSACleanup();
-        return 1;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (g_cola.size() >= MAX_COLA) {
+        g_cola.pop();
     }
+    g_cola.push(std::move(linea));
+}
 
-    // Configurar direccion
-    direccion.sin_family = AF_INET;
-    direccion.sin_addr.s_addr = INADDR_ANY;
-    direccion.sin_port = htons(PORT);
 
-    // Asociar socket a direccion
-    if (bind(servidor_fd, (struct sockaddr*)&direccion, sizeof(direccion)) == SOCKET_ERROR) {
-        std::cerr << "Fallo en bind. Codigo de error: " << WSAGetLastError() << std::endl;
-        closesocket(servidor_fd);
-        WSACleanup();
-        return 1;
-    }
+static void atender_cliente(SOCKET cliente) {
+    std::string pendiente;  
+    char buffer[1024];
 
-    // Escuchar conexiones
-    if (listen(servidor_fd, 3) == SOCKET_ERROR) {
-        std::cerr << "Fallo en listen. Codigo de error: " << WSAGetLastError() << std::endl;
-        closesocket(servidor_fd);
-        WSACleanup();
-        return 1;
-    }
+    while (g_corriendo) {
+        fd_set lectura;
+        FD_ZERO(&lectura);
+        FD_SET(cliente, &lectura);
+        timeval espera;
+        espera.tv_sec = 0;
+        espera.tv_usec = 200000; 
 
-    std::cout << "Esperando conexion en el puerto " << PORT << "...\n";
+        int r = select(0, &lectura, nullptr, nullptr, &espera);
+        if (r == SOCKET_ERROR) break;
+        if (r == 0) continue;  
 
-    // Aceptar conexion
-    nuevo_socket = accept(servidor_fd, (struct sockaddr*)&direccion, &addrlen);
-    if (nuevo_socket == INVALID_SOCKET) {
-        std::cerr << "Fallo en accept. Codigo de error: " << WSAGetLastError() << std::endl;
-        closesocket(servidor_fd);
-        WSACleanup();
-        return 1;
-    }
+        int n = recv(cliente, buffer, (int)sizeof(buffer), 0);
+        if (n <= 0) break;  
 
-    std::cout << "Cliente conectado\n";
+        pendiente.append(buffer, n);
 
-    // Acumulador: guarda lo recibido hasta tener mensajes completos (terminados en \n)
-    std::string pendiente;
-
-    while (true) {
-        int valread = recv(nuevo_socket, buffer, 1023, 0);
-        if (valread <= 0) {
-            std::cout << "El cliente se desconecto\n";
-            break;
-        }
-        buffer[valread] = '\0';
-        pendiente += buffer;
-
-        // Sacar todos los mensajes completos que haya en el acumulador
         size_t pos;
         while ((pos = pendiente.find('\n')) != std::string::npos) {
-            std::string linea = pendiente.substr(0, pos);
+            encolar(pendiente.substr(0, pos));
             pendiente.erase(0, pos + 1);
-
-            // Separar la linea por comas
-            std::vector<std::string> partes;
-            std::stringstream ss(linea);
-            std::string parte;
-            while (std::getline(ss, parte, ',')) {
-                partes.push_back(parte);
-            }
-
-            // Validar que tenga 3 partes: placa, hora y celda
-            if (partes.size() != 3) {
-                std::cout << "Mensaje invalido: [" << linea << "]" << std::endl;
-                continue;
-            }
-
-            std::string placa = partes[0];
-            std::string hora = partes[1];
-            int celda;
-            try {
-                celda = std::stoi(partes[2]);
-            }
-            catch (...) {
-                std::cout << "Celda invalida: [" << linea << "]" << std::endl;
-                continue;
-            }
-
-            std::cout << "Placa: " << placa << " | Hora: " << hora
-                << " | Celda: " << celda << std::endl;
         }
 
-        // Respuesta temporal: el cliente de prueba la espera. Se quita mas adelante.
-        send(nuevo_socket, mensaje, (int)strlen(mensaje), 0);
+        if (pendiente.size() > 4096) {
+            pendiente.clear();
+        }
+
+        if (ENVIAR_ACK) {
+            send(cliente, "Recibido", 8, 0);
+        }
+    }
+    closesocket(cliente);
+}
+
+
+static void bucle_servidor() {
+    while (g_corriendo) {
+        fd_set lectura;
+        FD_ZERO(&lectura);
+        FD_SET(g_servidor, &lectura);
+        timeval espera;
+        espera.tv_sec = 0;
+        espera.tv_usec = 200000; 
+
+        int r = select(0, &lectura, nullptr, nullptr, &espera);
+        if (r == SOCKET_ERROR) break;
+        if (r == 0) continue; 
+
+        SOCKET cliente = accept(g_servidor, nullptr, nullptr);
+        if (cliente == INVALID_SOCKET) continue;
+
+        atender_cliente(cliente);
+    }
+}
+
+
+EXPORTAR int iniciar_receptor(int puerto) {
+    if (g_corriendo) return 1;  
+    if (puerto < 1 || puerto > 65535) return 0;
+
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return 0;
+
+    SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
+    if (s == INVALID_SOCKET) {
+        WSACleanup();
+        return 0;
     }
 
-    // Cerrar sockets
-    closesocket(nuevo_socket);
-    closesocket(servidor_fd);
-    WSACleanup();
+    sockaddr_in direccion;
+    std::memset(&direccion, 0, sizeof(direccion));
+    direccion.sin_family = AF_INET;
+    direccion.sin_addr.s_addr = INADDR_ANY;
+    direccion.sin_port = htons((u_short)puerto);
 
-    return 0;
+    if (bind(s, (sockaddr*)&direccion, sizeof(direccion)) == SOCKET_ERROR ||
+        listen(s, 3) == SOCKET_ERROR) {
+        closesocket(s);
+        WSACleanup();
+        return 0;
+    }
+
+    {
+     
+        std::lock_guard<std::mutex> lock(g_mutex);
+        std::queue<std::string>().swap(g_cola);
+    }
+
+    g_servidor = s;
+    g_corriendo = true;
+    g_hilo = std::thread(bucle_servidor);
+    return 1;
+}
+
+
+EXPORTAR int obtener_mensaje(char* buffer, int tamano) {
+    if (buffer == nullptr || tamano <= 0) return 0;
+
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (g_cola.empty()) return 0;  
+
+    const std::string& mensaje = g_cola.front();
+    size_t n = std::min(mensaje.size(), (size_t)(tamano - 1));
+    std::memcpy(buffer, mensaje.data(), n);
+    buffer[n] = '\0';  
+    return 1;
+}
+
+
+EXPORTAR void detener_receptor() {
+    if (!g_corriendo) return;
+
+    g_corriendo = false;  
+    if (g_hilo.joinable()) {
+        g_hilo.join();
+    }
+    if (g_servidor != INVALID_SOCKET) {
+        closesocket(g_servidor);
+        g_servidor = INVALID_SOCKET;
+    }
+    WSACleanup();
 }
