@@ -34,3 +34,64 @@ En `receptor.py`:
 | `PUERTO` | — | `8080` |
 
 `receptor.dll` debe estar en la carpeta `visualizacion/`.
+
+## Diagrama UML
+
+```mermaid
+classDiagram
+    class App {
+        +parqueadero: Parqueadero
+        +corriendo: bool
+        +celdas_ui: dict
+        -_after_id
+        -_resaltes: dict
+        -_armar()
+        -_toggle()
+        -_iniciar()
+        -_detener()
+        -_consultar()
+        -_pintar_celda(celda)
+        -_pintar_todas()
+        -_resaltar_evento(evento)
+        -_agregar_historial(evento)
+        -_limpiar()
+        -_al_cerrar()
+    }
+    class Parqueadero {
+        +num_celdas: int
+        +celdas: dict
+        +por_placa: dict
+        +historial: list~Evento~
+        +procesar(mensaje) Evento
+        +limpiar_historial()
+    }
+    class Evento {
+        <<dataclass>>
+        +tipo: str
+        +placa: str
+        +hora: str
+        +celda: str
+        +detalle: str
+    }
+    class receptor {
+        <<modulo>>
+        +USAR_MOCK: bool
+        +PUERTO: int
+        +iniciar_receptor(puerto) int
+        +obtener_mensaje() tuple
+        +detener_receptor()
+    }
+    class receptorDLL {
+        <<externa C++>>
+        iniciar_receptor(int) int
+        obtener_mensaje(char*, int) int
+        detener_receptor() void
+    }
+
+    App --> Parqueadero : usa
+    App ..> receptor : consulta mensajes
+    App ..> Evento : muestra en historial
+    Parqueadero "1" o-- "*" Evento : historial
+    Parqueadero ..> Evento : crea
+    receptor ..> receptorDLL : ctypes
+```
