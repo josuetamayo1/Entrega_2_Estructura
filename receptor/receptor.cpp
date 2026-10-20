@@ -1,4 +1,3 @@
-
 #define NOMINMAX
 
 #include <winsock2.h>
@@ -9,41 +8,67 @@
 #include <cstring>
 #include <mutex>
 #include <queue>
+#include <sstream>
 #include <string>
 #include <thread>
+#include <vector>
 
-#pragma comment(lib, "ws2_32.lib")  
+#pragma comment(lib, "ws2_32.lib")
 
 #define EXPORTAR extern "C" __declspec(dllexport)
 
-
-static const bool ENVIAR_ACK = true;
 
 static const size_t MAX_COLA = 1000;
 
 static SOCKET g_servidor = INVALID_SOCKET;
 static std::thread g_hilo;
 static std::atomic<bool> g_corriendo(false);
-static std::mutex g_mutex;               
+static std::mutex g_mutex;
 static std::queue<std::string> g_cola;
+
+
+// Valida "placa,hora,celda" segun el contrato. Si es valido, deja en
+// 'normalizado' el mensaje limpio y devuelve true; si no, devuelve false.
+static bool validar(const std::string& linea, std::string& normalizado) {
+    std::vector<std::string> partes;
+    std::stringstream ss(linea);
+    std::string parte;
+    while (std::getline(ss, parte, ',')) {
+        partes.push_back(parte);
+    }
+    if (partes.size() != 3) return false;
+
+    int celda;
+    try {
+        celda = std::stoi(partes[2]);
+    }
+    catch (...) {
+        return false;
+    }
+
+    normalizado = partes[0] + "," + partes[1] + "," + std::to_string(celda);
+    return true;
+}
 
 
 static void encolar(std::string linea) {
     while (!linea.empty() && linea.back() == '\r') {
         linea.pop_back();
     }
-    if (linea.empty()) return;
+
+    std::string mensaje;
+    if (!validar(linea, mensaje)) return;  // los mensajes invalidos se descartan
 
     std::lock_guard<std::mutex> lock(g_mutex);
     if (g_cola.size() >= MAX_COLA) {
         g_cola.pop();
     }
-    g_cola.push(std::move(linea));
+    g_cola.push(std::move(mensaje));
 }
 
 
 static void atender_cliente(SOCKET cliente) {
-    std::string pendiente;  
+    std::string pendiente;
     char buffer[1024];
 
     while (g_corriendo) {
@@ -52,14 +77,14 @@ static void atender_cliente(SOCKET cliente) {
         FD_SET(cliente, &lectura);
         timeval espera;
         espera.tv_sec = 0;
-        espera.tv_usec = 200000;  
+        espera.tv_usec = 200000;
 
         int r = select(0, &lectura, nullptr, nullptr, &espera);
         if (r == SOCKET_ERROR) break;
-        if (r == 0) continue;  
+        if (r == 0) continue;
 
         int n = recv(cliente, buffer, (int)sizeof(buffer), 0);
-        if (n <= 0) break;  
+        if (n <= 0) break;
 
         pendiente.append(buffer, n);
 
@@ -72,10 +97,7 @@ static void atender_cliente(SOCKET cliente) {
         if (pendiente.size() > 4096) {
             pendiente.clear();
         }
-
-        if (ENVIAR_ACK) {
-            send(cliente, "Recibido", 8, 0);
-        }
+        // Segun el contrato, el receptor no responde nada al generador.
     }
     closesocket(cliente);
 }
@@ -88,11 +110,11 @@ static void bucle_servidor() {
         FD_SET(g_servidor, &lectura);
         timeval espera;
         espera.tv_sec = 0;
-        espera.tv_usec = 200000;  
+        espera.tv_usec = 200000;
 
         int r = select(0, &lectura, nullptr, nullptr, &espera);
         if (r == SOCKET_ERROR) break;
-        if (r == 0) continue;  
+        if (r == 0) continue;
 
         SOCKET cliente = accept(g_servidor, nullptr, nullptr);
         if (cliente == INVALID_SOCKET) continue;
@@ -103,7 +125,7 @@ static void bucle_servidor() {
 
 
 EXPORTAR int iniciar_receptor(int puerto) {
-    if (g_corriendo) return 1;  
+    if (g_corriendo) return 0;  // contrato: 0 si ya estaba iniciado
     if (puerto < 1 || puerto > 65535) return 0;
 
     WSADATA wsaData;
@@ -144,12 +166,12 @@ EXPORTAR int obtener_mensaje(char* buffer, int tamano) {
     if (buffer == nullptr || tamano <= 0) return 0;
 
     std::lock_guard<std::mutex> lock(g_mutex);
-    if (g_cola.empty()) return 0;  
+    if (g_cola.empty()) return 0;
 
     const std::string& mensaje = g_cola.front();
     size_t n = std::min(mensaje.size(), (size_t)(tamano - 1));
     std::memcpy(buffer, mensaje.data(), n);
-    buffer[n] = '\0';  
+    buffer[n] = '\0';
     g_cola.pop();
     return 1;
 }
@@ -158,7 +180,7 @@ EXPORTAR int obtener_mensaje(char* buffer, int tamano) {
 EXPORTAR void detener_receptor() {
     if (!g_corriendo) return;
 
-    g_corriendo = false;  
+    g_corriendo = false;
     if (g_hilo.joinable()) {
         g_hilo.join();
     }

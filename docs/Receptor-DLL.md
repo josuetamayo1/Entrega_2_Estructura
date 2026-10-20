@@ -16,7 +16,7 @@ void detener_receptor();
 |---|---|
 | `iniciar_receptor` | Inicializa Winsock, crea el socket, hace `bind` y `listen` en el puerto y lanza el hilo de recepción. Regresa de inmediato. Devuelve 0 si el puerto está ocupado o si ya estaba iniciado. |
 | `obtener_mensaje` | Saca el mensaje más antiguo de la cola y lo copia en el buffer de quien llama, con el formato `placa,hora,celda` y sin `\n`. Nunca escribe más de `tamano - 1` bytes. |
-| `detener_receptor` | Cierra los sockets para desbloquear `accept` y `recv`, espera a que termine el hilo (`join`), vacía la cola y libera Winsock. |
+| `detener_receptor` | Apaga la bandera `g_corriendo`, espera a que termine el hilo (`join`), cierra el socket servidor y libera Winsock. |
 
 Se exportan con `extern "C" __declspec(dllexport)`: `extern "C"` evita que C++ cambie los nombres de las funciones, así `ctypes` las encuentra por su nombre exacto.
 
@@ -35,15 +35,16 @@ classDiagram
   }
   class EstadoInterno {
     <<static, privado>>
-    -queue~string~ cola_mensajes
-    -mutex mutex_cola
-    -atomic~bool~ activo
-    -SOCKET servidor_fd
-    -atomic~SOCKET~ cliente_fd
-    -thread* hilo
-    -encolar_mensaje(string msg) void
-    -procesar_linea(string linea) void
-    -hilo_recepcion() void
+    -queue~string~ g_cola
+    -mutex g_mutex
+    -atomic~bool~ g_corriendo
+    -SOCKET g_servidor
+    -thread g_hilo
+    -size_t MAX_COLA$
+    -validar(string linea, string normalizado) bool
+    -encolar(string linea) void
+    -atender_cliente(SOCKET cliente) void
+    -bucle_servidor() void
   }
   class receptor_py {
     <<Python · visualizador>>
@@ -70,9 +71,13 @@ classDiagram
 ```mermaid
 flowchart TD
     A[iniciar_receptor] --> B[socket · bind · listen]
-    B --> C[Lanza hilo_recepcion]
-    C --> D{accept}
-    D --> E[recv]
+    B --> C[Lanza bucle_servidor en un hilo]
+    C --> D{select: ¿hay conexión?}
+    D -->|no, 200 ms| D
+    D -->|sí| D2[accept]
+    D2 --> S{select: ¿hay datos?}
+    S -->|no, 200 ms| S
+    S -->|sí| E[recv]
     E -->|datos| F[Acumular en 'pendiente']
     F --> G{¿hay \n?}
     G -->|sí| H[Extraer línea]
@@ -80,13 +85,15 @@ flowchart TD
     I -->|sí| J[Encolar con mutex]
     I -->|no| G
     J --> G
-    G -->|no| E
+    G -->|no| S
     E -->|0 o error| K[Cerrar conexión del cliente]
     K --> D
 ```
 
 ### Hilo de recepción
-`accept` y `recv` son llamadas **bloqueantes**: se quedan esperando hasta que llegue algo. Si se ejecutaran en el hilo de Python, la ventana del visualizador se congelaría. Por eso corren en un `std::thread` aparte.
+`accept` y `recv` son llamadas **bloqueantes**: se quedan esperando hasta que llegue algo. Si se ejecutaran en el hilo de Python, la ventana del visualizador se congelaría. Por eso corren en un `std::thread` aparte (`bucle_servidor`).
+
+Antes de cada `accept` y cada `recv` se llama a `select()` con una espera máxima de 200 ms. Así el hilo nunca queda bloqueado indefinidamente: cada 200 ms revisa la bandera `g_corriendo`, y cuando `detener_receptor()` la apaga, el hilo termina solo y el `join` no se queda esperando.
 
 Si el generador se desconecta, el hilo vuelve al `accept` y espera otra conexión, sin que haya que reiniciar el visualizador.
 
@@ -97,9 +104,9 @@ Lo que llega en cada `recv` se agrega a un `std::string pendiente`. Mientras hay
 Cada línea se separa por comas con `std::stringstream` y `std::getline`. Si no tiene 3 partes, o si `std::stoi` no puede convertir la celda (se atrapa la excepción con `try/catch`), el mensaje se descarta sin detener el receptor.
 
 ### Cola y mutex
-- `std::queue<std::string>`: el hilo de recepción **escribe** y el visualizador **lee**. Es una estructura **FIFO**: los mensajes salen en el mismo orden en que llegaron.
-- `std::mutex` con `std::lock_guard`: evita que los dos hilos modifiquen la cola al mismo tiempo. El `lock_guard` bloquea al crearse y desbloquea solo al salir de la función.
-- `std::atomic<bool> activo`: bandera compartida entre hilos que indica si el receptor debe seguir corriendo.
+- `std::queue<std::string> g_cola`: el hilo de recepción **escribe** y el visualizador **lee**. Es una estructura **FIFO**: los mensajes salen en el mismo orden en que llegaron. Tiene un máximo de 1000 mensajes (`MAX_COLA`); si se llena, se descarta el más antiguo.
+- `std::mutex g_mutex` con `std::lock_guard`: evita que los dos hilos modifiquen la cola al mismo tiempo. El `lock_guard` bloquea al crearse y desbloquea solo al salir de la función.
+- `std::atomic<bool> g_corriendo`: bandera compartida entre hilos que indica si el receptor debe seguir corriendo.
 
 ## Compilación
 
@@ -135,3 +142,4 @@ Ver el script completo en `pruebas/prueba_dll.py`.
 3. Acumulador por `\n` y validación de placa, hora y celda.
 4. Recepción en un hilo con cola protegida por mutex.
 5. Conversión a DLL con las tres funciones del contrato.
+6. Uso de `select()` con espera de 200 ms para poder detener el hilo de forma limpia, y límite de tamaño para la cola.
