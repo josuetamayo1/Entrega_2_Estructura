@@ -1,8 +1,8 @@
 #include "Parqueadero.h"
-#include <cstdlib>   // rand
+#include <cstdlib>   
 
 Parqueadero::Parqueadero() : ocupadas(0) {
-    // Las NUM_CELDAS celdas nacen vacias, o sea todas libres.
+   
 }
 
 bool Parqueadero::celdaValida(int celda) const {
@@ -13,7 +13,7 @@ bool Parqueadero::estaLleno() const  { return ocupadas == NUM_CELDAS; }
 bool Parqueadero::estaVacio() const  { return ocupadas == 0; }
 
 bool Parqueadero::placaDentro(const std::string& placa) const {
-    if (placa.empty()) return false;  // "" coincidiría con las celdas libres
+    if (placa.empty()) return false;  
     for (int i = 0; i < NUM_CELDAS; i++) {
         if (celdas[i] == placa) return true;
     }
@@ -29,20 +29,20 @@ int Parqueadero::elegirCeldaLibre() const {
     int libres = NUM_CELDAS - ocupadas;
     if (libres == 0) return 0;
 
-    int k = rand() % libres;          // "la k-ésima celda libre"
+    int k = rand() % libres;          
     for (int i = 0; i < NUM_CELDAS; i++) {
         if (celdas[i].empty()) {
             if (k == 0) return i + 1;
             k--;
         }
     }
-    return 0;  // no debería llegar aquí
+    return 0;  
 }
 
 int Parqueadero::elegirCeldaOcupada() const {
     if (ocupadas == 0) return 0;
 
-    int k = rand() % ocupadas;        // "la k-ésima celda ocupada"
+    int k = rand() % ocupadas;        
     for (int i = 0; i < NUM_CELDAS; i++) {
         if (!celdas[i].empty()) {
             if (k == 0) return i + 1;
@@ -54,7 +54,7 @@ int Parqueadero::elegirCeldaOcupada() const {
 
 bool Parqueadero::ocupar(int celda, const std::string& placa) {
     if (!celdaValida(celda) || placa.empty()) return false;
-    if (!celdas[celda - 1].empty()) return false;   // ya estaba ocupada
+    if (!celdas[celda - 1].empty()) return false;   
     celdas[celda - 1] = placa;
     ocupadas++;
     return true;
@@ -62,7 +62,7 @@ bool Parqueadero::ocupar(int celda, const std::string& placa) {
 
 bool Parqueadero::liberar(int celda) {
     if (!celdaValida(celda)) return false;
-    if (celdas[celda - 1].empty()) return false;    // ya estaba libre
+    if (celdas[celda - 1].empty()) return false;   
     celdas[celda - 1] = "";
     ocupadas--;
     return true;
