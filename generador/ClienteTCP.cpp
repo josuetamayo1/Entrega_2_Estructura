@@ -1,10 +1,10 @@
-#define _WINSOCK_DEPRECATED_NO_WARNINGS   // inet_addr es "obsoleta" en Visual Studio
+#define _WINSOCK_DEPRECATED_NO_WARNINGS   
 #include "ClienteTCP.h"
 #include <iostream>
 #include <sstream>
-#include <cstring>   // memset
+#include <cstring>   
 
-#pragma comment(lib, "ws2_32.lib")   // Visual Studio; en Dev-C++ se usa -lws2_32
+#pragma comment(lib, "ws2_32.lib")   
 
 static const int PAUSA_REINTENTO_MS = 3000;
 
@@ -43,9 +43,9 @@ ClienteTCP::~ClienteTCP() {
 }
 
 bool ClienteTCP::conectar() {
-    if (!winsockIniciado || !configValida) return false;  // el error ya se mostro en el constructor
+    if (!winsockIniciado || !configValida) return false;  
 
-    cerrar();   // por si quedaba un socket anterior
+    cerrar();   
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == INVALID_SOCKET) {
@@ -67,7 +67,7 @@ bool ClienteTCP::conectar() {
 }
 
 bool ClienteTCP::reconectar() {
-    if (!winsockIniciado || !configValida) return false;  // reintentar no serviria de nada
+    if (!winsockIniciado || !configValida) return false; 
 
     cerrar();
     int intento = 1;
@@ -83,8 +83,7 @@ bool ClienteTCP::reconectar() {
 bool ClienteTCP::enviar(const std::string& texto) {
     if (!conectado) return false;
 
-    // Verificar antes de enviar: si el servidor ya cerro, el send "funcionaria"
-    // y el mensaje se perderia sin que nos enteremos
+   
     if (!conexionViva()) {
         std::cerr << "[ERROR] El servidor cerro la conexion." << std::endl;
         cerrar();
@@ -93,7 +92,7 @@ bool ClienteTCP::enviar(const std::string& texto) {
 
     int total = (int)texto.size();
     int enviados = 0;
-    while (enviados < total) {          // send puede enviar menos de lo pedido
+    while (enviados < total) {          
         int n = send(sock, texto.c_str() + enviados, total - enviados, 0);
         if (n == SOCKET_ERROR) {
             std::cerr << "[ERROR] Fallo al enviar: "
@@ -125,20 +124,17 @@ bool ClienteTCP::conexionViva() {
         FD_SET(sock, &lectura);
 
         timeval espera;
-        espera.tv_sec = 0;      // no esperar: solo preguntar
+        espera.tv_sec = 0;      
         espera.tv_usec = 0;
 
         int r = select(0, &lectura, NULL, NULL, &espera);
         if (r == SOCKET_ERROR) return false;
-        if (r == 0) return true;        // nada pendiente: la conexion sigue abierta
+        if (r == 0) return true;        
 
-        // Hay algo para leer: o son datos del servidor, o es el aviso de cierre
+       
         char descarte[256];
         int n = recv(sock, descarte, sizeof(descarte), 0);
-        if (n == 0 || n == SOCKET_ERROR) return false;   // el servidor cerro
-
-        // n > 0: eran datos (por ejemplo una respuesta). Se descartan,
-        // porque el contrato no define respuestas, y se vuelve a preguntar
+        if (n == 0 || n == SOCKET_ERROR) return false;  
     }
 }
 std::string ClienteTCP::describirError(int codigo) {

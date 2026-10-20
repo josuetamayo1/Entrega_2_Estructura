@@ -1,9 +1,9 @@
 #include "Simulador.h"
 #include "Evento.h"
 #include <iostream>
-#include <cstdlib>   // rand
+#include <cstdlib>   
 
-static const int PROB_ENTRADA = 50;        // % de probabilidad de entrada (si no esta lleno ni vacio)
+static const int PROB_ENTRADA = 50;        
 static const int INTERVALO_MIN_MS = 2000;
 static const int INTERVALO_MAX_MS = 5000;
 
@@ -27,13 +27,13 @@ void Simulador::ejecutar() {
 }
 
 bool Simulador::decidirEntrada() const {
-    if (parqueadero.estaLleno()) return false;    // lleno: tiene que ser salida
-    if (parqueadero.estaVacio()) return true;     // vacio: tiene que ser entrada
+    if (parqueadero.estaLleno()) return false;   
+    if (parqueadero.estaVacio()) return true;     
     return (rand() % 100) < PROB_ENTRADA;
 }
 
 bool Simulador::procesarEntrada() {
-    // La placa no puede estar ya dentro: el receptor la tomaria como una salida
+    
     std::string placa;
     do {
         placa = generador.generar();
@@ -46,20 +46,20 @@ bool Simulador::procesarEntrada() {
     std::cout << "ENTRADA " << texto;
     if (!enviar(texto)) return false;
 
-    parqueadero.ocupar(celda, placa);             // solo si el envio tuvo exito
+    parqueadero.ocupar(celda, placa);            
     return true;
 }
 
 bool Simulador::procesarSalida() {
     int celda = parqueadero.elegirCeldaOcupada();
     std::string placa = parqueadero.placaEn(celda);
-    Evento evento(placa, celda);                  // misma placa y misma celda que ocupaba
+    Evento evento(placa, celda);                  
     std::string texto = evento.aTexto();
 
     std::cout << "SALIDA  " << texto;
     if (!enviar(texto)) return false;
 
-    parqueadero.liberar(celda);                   // solo si el envio tuvo exito
+    parqueadero.liberar(celda);                   
     return true;
 }
 

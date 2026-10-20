@@ -9,10 +9,10 @@ public:
     ClienteTCP(const std::string& ip, int puerto);
     ~ClienteTCP();
 
-    bool conectar();                        // un solo intento; false si falla
-    bool reconectar();                      // reintenta cada 3 s hasta lograrlo;
-    // false solo si la IP o el puerto son invalidos
-    bool enviar(const std::string& texto);  // false si no se pudo enviar (conexion perdida)
+    bool conectar();                        
+    bool reconectar();                      
+    
+    bool enviar(const std::string& texto);  
     void cerrar();
     bool estaConectado() const;
 
@@ -28,7 +28,7 @@ private:
     bool conexionViva();
     static std::string describirError(int codigo);
 
-    // Un ClienteTCP no se puede copiar: dos copias cerrarian el mismo socket
+    
     ClienteTCP(const ClienteTCP&);
     ClienteTCP& operator=(const ClienteTCP&);
 };

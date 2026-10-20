@@ -5,7 +5,7 @@
 
 class GeneradorPlacas {
 public:
-    std::string generar() const;   // devuelve una placa con formato LLL000
+    std::string generar() const;   
 };
 
 #endif

@@ -1,8 +1,8 @@
 #include "Config.h"
 #include <fstream>
 #include <iostream>
-#include <cstdlib>   // atoi
-#include <direct.h>  // _getcwd
+#include <cstdlib>   
+#include <direct.h>  
 
 Config::Config() : ip("127.0.0.1"), puerto(8080) {
 }
@@ -33,7 +33,7 @@ bool Config::cargar(const std::string& archivo) {
     std::string linea;
     bool primera = true;
     while (std::getline(entrada, linea)) {
-        // Algunos editores guardan el archivo con una marca invisible (BOM) al inicio
+        
         if (primera) {
             primera = false;
             if (linea.size() >= 3 && linea.compare(0, 3, "\xEF\xBB\xBF") == 0) {
@@ -42,7 +42,7 @@ bool Config::cargar(const std::string& archivo) {
         }
 
         linea = recortar(linea);
-        if (linea.empty() || linea[0] == '#') continue;   // vacias y comentarios
+        if (linea.empty() || linea[0] == '#') continue;  
 
         std::string::size_type igual = linea.find('=');
         if (igual == std::string::npos) {

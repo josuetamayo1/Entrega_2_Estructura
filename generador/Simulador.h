@@ -10,17 +10,17 @@
 class Simulador {
 public:
     Simulador(const Config& config);
-    void ejecutar();      // ciclo infinito: un evento cada 2 a 5 segundos
+    void ejecutar();      
 
 private:
     Parqueadero parqueadero;
     GeneradorPlacas generador;
     ClienteTCP cliente;
 
-    bool decidirEntrada() const;               // true = entrada, false = salida
-    bool procesarEntrada();                    // false solo si la configuracion es invalida
+    bool decidirEntrada() const;             
+    bool procesarEntrada();                    
     bool procesarSalida();
-    bool enviar(const std::string& texto);     // reintenta el mismo mensaje hasta lograrlo
+    bool enviar(const std::string& texto);     
     void esperarIntervalo() const;
 };
 

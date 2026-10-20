@@ -4,7 +4,7 @@
 #include "Simulador.h"
 
 int main() {
-    srand((unsigned)time(NULL));   // UNA sola vez, al inicio del programa
+    srand((unsigned)time(NULL));   
 
     Config config;
     config.cargar("config.txt");

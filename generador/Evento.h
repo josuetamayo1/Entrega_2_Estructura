@@ -5,13 +5,13 @@
 
 class Evento {
 public:
-    Evento(const std::string& placa, int celda);   // toma la hora actual al crearse
+    Evento(const std::string& placa, int celda);  
 
-    std::string aTexto() const;    // "ABC123,18:30:05,12\n"
+    std::string aTexto() const;    
 
 private:
     std::string placa;
-    std::string hora;              // "HH:MM:SS"
+    std::string hora;              
     int celda;
 
     static std::string horaActual();
